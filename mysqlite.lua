@@ -203,7 +203,7 @@ function connectToMySQL(host, username, password, database_name, database_port)
 	if timer.Exists("darkrp_check_mysql_status") then timer.Destroy("darkrp_check_mysql_status") end
 
 	databaseObject.onConnectionFailed = function(_, msg)
-		Error("Connection failed! " ..tostring(msg))
+		Error("Connection failed! " .. tostring(msg) ..  "\n")
 	end
 
 	databaseObject.onConnected = function()
