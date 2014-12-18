@@ -1,6 +1,6 @@
+local bit = bit
 local debug = debug
 local error = error
-local Error = Error
 local ErrorNoHalt = ErrorNoHalt
 local hook = hook
 local include = include
@@ -11,15 +11,24 @@ local string = string
 local table = table
 local timer = timer
 local tostring = tostring
-local print = print
-local GAMEMODE = GM
+local GAMEMODE = GM or GAMEMODE
 local mysqlOO
+local TMySQL
+local _G = _G
 
 local MySQLite_config = MySQLite_config or RP_MySQLConfig or FPP_MySQLConfig
 
 if MySQLite_config.EnableMySQL then
-	require("mysqloo")
-	mysqlOO = mysqloo
+    moo, tmsql = file.Exists("bin/gmsv_mysqloo_*.dll", "LUA"), file.Exists("bin/gmsv_tmysql4_*.dll", "LUA")
+
+    if not moo and not tmsql then
+        error("Could not find a suitable MySQL module. Supported modules are MySQLOO and tmysql4.")
+    end
+
+    require(moo and "mysqloo" or "tmysql4")
+
+    mysqlOO = mysqloo
+    TMySQL = tmysql
 end
 
 module("MySQLite")
@@ -28,6 +37,8 @@ function initialize()
 	if not MySQLite_config then
 		ErrorNoHalt("Warning: No MySQL config!")
 	end
+
+    MySQLite_config = MySQLite_config or {}
 
 	if MySQLite_config.EnableMySQL then
 		timer.Simple(1, function()
@@ -118,126 +129,130 @@ function queueQuery(sqlText, callback, errorCallback)
 	query(sqlText, callback, errorCallback)
 end
 
+local function msOOQuery(sqlText, callback, errorCallback, queryValue)
+    local query = databaseObject:query(sqlText)
+    local data
+    query.onData = function(Q, D)
+        data = data or {}
+        data[#data + 1] = D
+    end
+
+    query.onError = function(Q, E)
+        if (databaseObject:status() == mysqlOO.DATABASE_NOT_CONNECTED) then
+            table.insert(cachedQueries, {sqlText, callback, queryValue})
+            return
+        end
+
+        if errorCallback then
+            errorCallback()
+        end
+
+        ErrorNoHalt(E .. " (" .. sqlText .. ")\n")
+    end
+
+    query.onSuccess = function()
+        local res = queryValue and data and data[1] and table.GetFirstValue(data[1]) or not queryValue and data or nil
+        if callback then callback(res, query:lastInsert()) end
+    end
+    query:start()
+end
+
+local function tmsqlQuery(sqlText, callback, errorCallback, queryValue)
+    local call = function(res, succeed, err)
+        if not succeed then error(err .. " (" .. sqlText .. ")") end
+
+        if queryValue and callback then return callback(res and res[1] and res[1][1] or nil) end
+        if callback then callback(res, err) end -- err is last inserted row on succeed
+    end
+
+    -- We don't want column names when asking for a value
+    local flags = bit.bor(queryValue and 0 or _G.QUERY_FLAG_ASSOC, _G.QUERY_FLAG_LASTID)
+    databaseObject:Query(sqlText, call, flags)
+end
+
+local function SQLiteQuery(sqlText, callback, errorCallback, queryValue)
+    local lastError = sql.LastError()
+    local Result = queryValue and sql.QueryValue(sqlText) or sql.Query(sqlText)
+
+    if sql.LastError() and sql.LastError() ~= lastError then
+        error("SQLite error: " .. sql.LastError())
+    end
+
+    if callback then callback(Result) end
+    return Result
+end
+
 function query(sqlText, callback, errorCallback)
-	if CONNECTED_TO_MYSQL then
-		local query = databaseObject:query(sqlText)
-		local data
-		query.onData = function(Q, D)
-			data = data or {}
-			data[#data + 1] = D
-		end
-
-		query.onError = function(Q, E)
-			if (databaseObject:status() == mysqlOO.DATABASE_NOT_CONNECTED) then
-				table.insert(cachedQueries, {sqlText, callback, false})
-				return
-			end
-
-			if errorCallback then
-				errorCallback()
-			end
-
-			ErrorNoHalt(E .. " (" .. sqlText .. ")\n")
-		end
-
-		query.onSuccess = function()
-			if callback then callback(data, query:lastInsert()) end
-		end
-		query:start()
-		return
-	end
-
-	local lastError = sql.LastError()
-	local Result = sql.Query(sqlText)
-	if sql.LastError() and sql.LastError() ~= lastError then
-		error("SQLite error: " .. sql.LastError())
-	end
-
-	if callback then callback(Result) end
-	return Result
+	local qFunc = (CONNECTED_TO_MYSQL and
+            mysqlOO and msOOQuery or
+            TMySQL and tmsqlQuery) or
+        SQLiteQuery
+    return qFunc(sqlText, callback, errorCallback, false)
 end
 
 function queryValue(sqlText, callback, errorCallback)
-	if CONNECTED_TO_MYSQL then
-		local query = databaseObject:query(sqlText)
-		local data
-		query.onData = function(Q, D)
-			data = D
-		end
-		query.onSuccess = function()
-			for k,v in pairs(data or {}) do
-				callback(v)
-				return
-			end
-			callback()
-		end
-		query.onError = function(Q, E)
-			if (databaseObject:status() == mysqlOO.DATABASE_NOT_CONNECTED) then
-				table.insert(cachedQueries, {sqlText, callback, true})
-				return
-			end
-
-			if errorCallback then
-				errorCallback()
-			end
-
-			ErrorNoHalt(E .. " (" .. sqlText .. ")\n")
-		end
-
-		query:start()
-		return
-	end
-
-	local lastError = sql.LastError()
-	local val = sql.QueryValue(sqlText)
-	if sql.LastError() and sql.LastError() ~= lastError then
-		error("SQLite error: " .. sql.LastError())
-	end
-
-	if callback then callback(val) end
-	return val
+    local qFunc = (CONNECTED_TO_MYSQL and
+            mysqlOO and msOOQuery or
+            TMySQL and tmsqlQuery) or
+        SQLiteQuery
+    return qFunc(sqlText, callback, errorCallback, true)
 end
 
-function connectToMySQL(host, username, password, database_name, database_port)
-	if not mysqlOO then Error("MySQL modules aren't installed properly!") end
-	databaseObject = mysqlOO.connect(host, username, password, database_name, database_port)
+local function onConnected()
+    CONNECTED_TO_MYSQL = true
 
-	if timer.Exists("darkrp_check_mysql_status") then timer.Destroy("darkrp_check_mysql_status") end
+    -- Run the queries that were called before the connection was made
+    for _, v in pairs(cachedQueries or {}) do
+        if v[3] then
+            queryValue(v[1], v[2])
+        else
+            query(v[1], v[2])
+        end
+    end
+    cachedQueries = {}
 
-	databaseObject.onConnectionFailed = function(_, msg)
-		Error("Connection failed! " .. tostring(msg) ..  "\n")
-	end
-
-	databaseObject.onConnected = function()
-		CONNECTED_TO_MYSQL = true
-		if cachedQueries then
-			for _, v in pairs(cachedQueries) do
-				if v[3] then
-					queryValue(v[1], v[2])
-				else
-					query(v[1], v[2])
-				end
-			end
-		end
-		cachedQueries = {}
-
-		timer.Create("darkrp_check_mysql_status", 60, 0, function()
-			if (databaseObject and databaseObject:status() == mysqlOO.DATABASE_NOT_CONNECTED) then
-				connectToMySQL(MySQLite_config.Host, MySQLite_config.Username, MySQLite_config.Password, MySQLite_config.Database_name, MySQLite_config.Database_port)
-			end
-		end)
-
-		hook.Call("DatabaseInitialized", GAMEMODE)
-	end
-	databaseObject:connect()
+    hook.Call("DatabaseInitialized", GAMEMODE.DatabaseInitialized and GAMEMODE or nil)
 end
+
+local function msOOConnect(host, username, password, database_name, database_port)
+    databaseObject = mysqlOO.connect(host, username, password, database_name, database_port)
+
+    if timer.Exists("darkrp_check_mysql_status") then timer.Destroy("darkrp_check_mysql_status") end
+
+    databaseObject.onConnectionFailed = function(_, msg)
+        error("Connection failed! " .. tostring(msg) ..  "\n")
+    end
+
+    databaseObject.onConnected = function()
+        timer.Create("darkrp_check_mysql_status", 60, 0, function()
+            if (databaseObject and databaseObject:status() == mysqlOO.DATABASE_NOT_CONNECTED) then
+                connectToMySQL(MySQLite_config.Host, MySQLite_config.Username, MySQLite_config.Password, MySQLite_config.Database_name, MySQLite_config.Database_port)
+            end
+        end)
+
+        onConnected()
+    end
+
+    databaseObject:connect()
+end
+
+local function tmsqlConnect(host, username, password, database_name, database_port)
+    local db, err = TMySQL.initialize(host, username, password, database_name, database_port)
+    if err then error("Connection failed! " .. err ..  "\n") end
+
+    databaseObject = db
+    onConnected()
+end
+
+connectToMySQL = mysqlOO and msOOConnect or TMySQL and tmsqlConnect or function() end
 
 function SQLStr(str)
-	if not CONNECTED_TO_MYSQL then
-		return sql.SQLStr(str)
-	end
+    local escape =
+        not CONNECTED_TO_MYSQL and sql.SQLStr or
+        mysqlOO                and function(str) return "\"" .. databaseObject:escape(tostring(str)) .. "\"" end or
+        TMySQL                 and function(str) return "\"" .. TMySQL.escape(tostring(str))         .. "\"" end
 
-	return "\"" .. databaseObject:escape(tostring(str)) .. "\""
+    return escape(str)
 end
 
 function tableExists(tbl, callback, errorCallback)
