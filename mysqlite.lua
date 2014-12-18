@@ -161,6 +161,7 @@ local function tmsqlQuery(sqlText, callback, errorCallback, queryValue)
     local call = function(res, succeed, err)
         if not succeed then error(err .. " (" .. sqlText .. ")") end
 
+        if #res == 0 then res = nil end -- compatibility with other backends
         if queryValue and callback then return callback(res and res[1] and res[1][1] or nil) end
         if callback then callback(res, err) end -- err is last inserted row on succeed
     end
