@@ -1,3 +1,13 @@
+--[[
+    MySQLite - Abstraction mechanism for SQLite and MySQL
+
+    License: LGPL V2.1 (read here: https://www.gnu.org/licenses/lgpl-2.1.html)
+
+    Supported MySQL modules:
+    - MySQLOO
+    - tmysql4
+]]
+
 local bit = bit
 local debug = debug
 local error = error
