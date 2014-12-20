@@ -240,16 +240,13 @@ local function msOOQuery(sqlText, callback, errorCallback, queryValue)
     end
 
     query.onError = function(Q, E)
-        if (databaseObject:status() == mysqlOO.DATABASE_NOT_CONNECTED) then
+        if databaseObject:status() == mysqlOO.DATABASE_NOT_CONNECTED then
             table.insert(cachedQueries, {sqlText, callback, queryValue})
             return
         end
 
-        if errorCallback then
-            errorCallback()
-        end
-
-        ErrorNoHalt(E .. " (" .. sqlText .. ")\n")
+        local supp = errorCallback and errorCallback(E, sqlText)
+        if not supp then error(E .. " (" .. sqlText .. ")") end
     end
 
     query.onSuccess = function()
@@ -261,7 +258,11 @@ end
 
 local function tmsqlQuery(sqlText, callback, errorCallback, queryValue)
     local call = function(res, succeed, err)
-        if not succeed then error(err .. " (" .. sqlText .. ")") end
+        if not succeed then
+            local supp = errorCallback and errorCallback(err, sqlText)
+            if not supp then error(err .. " (" .. sqlText .. ")") end
+            return
+        end
 
         if #res == 0 then res = nil end -- compatibility with other backends
         if queryValue and callback then return callback(res and res[1] and res[1][1] or nil) end
@@ -278,7 +279,10 @@ local function SQLiteQuery(sqlText, callback, errorCallback, queryValue)
     local Result = queryValue and sql.QueryValue(sqlText) or sql.Query(sqlText)
 
     if sql.LastError() and sql.LastError() ~= lastError then
-        error("SQLite error: " .. sql.LastError())
+        local err = sql.LastError()
+        local supp = errorCallback and errorCallback(err, sqlText)
+        if not supp then error(err .. " (" .. sqlText .. ")") end
+        return
     end
 
     if callback then callback(Result) end
