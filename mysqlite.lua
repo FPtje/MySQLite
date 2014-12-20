@@ -1,11 +1,18 @@
 --[[
     MySQLite - Abstraction mechanism for SQLite and MySQL
 
+    Why use this?
+        - Easy to use interface for MySQL
+        - No need to modify code when switching between SQLite and MySQL
+        - Queued queries: execute a bunch of queries in order an run the callback when all queries are done
+
     License: LGPL V2.1 (read here: https://www.gnu.org/licenses/lgpl-2.1.html)
 
     Supported MySQL modules:
     - MySQLOO
     - tmysql4
+
+    Note: When both MySQLOO and tmysql4 modules are installed, MySQLOO is used by default.
 ]]
 
 local bit = bit
@@ -27,28 +34,35 @@ local TMySQL
 local _G = _G
 
 local MySQLite_config = MySQLite_config or RP_MySQLConfig or FPP_MySQLConfig
+local moduleLoaded
 
-if MySQLite_config.EnableMySQL then
+local function loadMySQLModule()
+    if moduleLoaded or not MySQLite_config or not MySQLite_config.EnableMySQL then return end
+
     moo, tmsql = file.Exists("bin/gmsv_mysqloo_*.dll", "LUA"), file.Exists("bin/gmsv_tmysql4_*.dll", "LUA")
 
     if not moo and not tmsql then
         error("Could not find a suitable MySQL module. Supported modules are MySQLOO and tmysql4.")
     end
+    moduleLoaded = true
 
     require(moo and "mysqloo" or "tmysql4")
 
     mysqlOO = mysqloo
     TMySQL = tmysql
 end
+loadMySQLModule()
 
 module("MySQLite")
 
-function initialize()
+function initialize(config)
+    MySQLite_config = config or MySQLite_config
+
 	if not MySQLite_config then
 		ErrorNoHalt("Warning: No MySQL config!")
 	end
 
-    MySQLite_config = MySQLite_config or {}
+    loadMySQLModule()
 
 	if MySQLite_config.EnableMySQL then
 		timer.Simple(1, function()
