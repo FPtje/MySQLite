@@ -13,6 +13,84 @@
     - tmysql4
 
     Note: When both MySQLOO and tmysql4 modules are installed, MySQLOO is used by default.
+
+    /*---------------------------------------------------------------------------
+    Documentation
+    ---------------------------------------------------------------------------*/
+
+    MySQLite.initialize([config :: table]) :: No value
+        Initialize MySQLite. Loads the config from either the config parameter OR the MySQLite_config global.
+        This loads the module (if necessary) and connects to the MySQL database (if set up).
+        The config must have this layout:
+            {
+                EnableMySQL      :: Bool - set to true to use MySQL, false for SQLite
+                Host             :: String - database hostname
+                Username         :: String - database username
+                Password         :: String - database password (keep away from clients!)
+                Database_name    :: String - name of the database
+                Database_port    :: Number - connection port (3306 by default)
+            }
+
+    ----------------------------- Utility functions -----------------------------
+    MySQLite.isMySQL() :: Bool
+        Returns whether MySQLite is set up to use MySQL. True for MySQL, false for SQLite.
+        Use this when the query syntax between SQLite and MySQL differs (example: AUTOINCREMENT vs AUTO_INCREMENT)
+
+    MySQLite.SQLStr(str :: String) :: String
+        Escapes the string and puts it in quotes.
+        It uses the escaping method of the module that is currently being used.
+
+    MySQLite.tableExists(tbl :: String, callback :: function, errorCallback :: function)
+        Checks whether table tbl exists.
+
+        callback format: function(res :: Bool)
+            res is a boolean indicating whether the table exists.
+
+        The errorCallback format is the same as in MySQLite.query.
+
+    ----------------------------- Running queries -----------------------------
+    MySQLite.query(sqlText :: String, callback :: function, errorCallback :: function) :: No value
+        Runs a query. Calls the callback parameter when finished, calls errorCallback when an error occurs.
+
+        callback format:
+            function(result :: table, lastInsert :: number)
+            Result is the table with results (nil when there are no results or when the result list is empty)
+            lastInsert is the row number of the last inserted value (use with AUTOINCREMENT)
+
+            Note: lastInsert is NOT supported when using SQLite.
+
+        errorCallback format:
+            function(error :: String, query :: String) :: Bool
+            error is the error given by the database module.
+            query is the query that triggered the error.
+
+            Return true to suppress the error!
+
+    MySQLite.queryValue(sqlText :: String, callback :: function, errorCallback :: function) :: No value
+        Runs a query and returns the first value it comes across.
+
+        callback format:
+            function(result :: any)
+                where the result is either a string or a number, depending on the requested database field.
+
+        The errorCallback format is the same as in MySQLite.query.
+
+    ----------------------------- Transactions -----------------------------
+    MySQLite.begin() :: No value
+        Starts a transaction. Use in combination with MySQLite.queueQuery and MySQLite.commit.
+
+    MySQLite.queueQuery(sqlText :: String, callback :: function, errorCallback :: function) :: No value
+        Queues a query in the transaction. Note: a transaction must be started with MySQLite.begin() for this to work.
+        The callback will be called when this specific query has been executed successfully.
+        The errorCallback function will be called when an error occurs in this specific query.
+
+        See MySQLite.query for the callback and errorCallback format.
+
+    MySQLite.commit(onFinished)
+        Commits a transaction and calls onFinished when EVERY queued query has finished.
+        onFinished is NOT called when an error occurs in one of the queued queries.
+
+        onFinished is called without arguments.
 ]]
 
 local bit = bit
@@ -269,7 +347,11 @@ local function tmsqlConnect(host, username, password, database_name, database_po
     onConnected()
 end
 
-connectToMySQL = mysqlOO and msOOConnect or TMySQL and tmsqlConnect or function() end
+function connectToMySQL(host, username, password, database_name, database_port)
+    database_port = database_port or 3306
+    local func = mysqlOO and msOOConnect or TMySQL and tmsqlConnect or function() end
+    func(host, username, password, database_name, database_port)
+end
 
 function SQLStr(str)
     local escape =
