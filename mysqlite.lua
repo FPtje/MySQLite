@@ -269,9 +269,7 @@ local function tmsqlQuery(sqlText, callback, errorCallback, queryValue)
         if callback then callback(res, err) end -- err is last inserted row on succeed
     end
 
-    -- We don't want column names when asking for a value
-    local flags = bit.bor(queryValue and 0 or _G.QUERY_FLAG_ASSOC, _G.QUERY_FLAG_LASTID)
-    databaseObject:Query(sqlText, call, flags)
+    databaseObject:Query(sqlText, call)
 end
 
 local function SQLiteQuery(sqlText, callback, errorCallback, queryValue)
@@ -361,7 +359,7 @@ function SQLStr(str)
     local escape =
         not CONNECTED_TO_MYSQL and sql.SQLStr or
         mysqlOO                and function(str) return "\"" .. databaseObject:escape(tostring(str)) .. "\"" end or
-        TMySQL                 and function(str) return "\"" .. TMySQL.escape(tostring(str))         .. "\"" end
+        TMySQL                 and function(str) return "\"" .. databaseObject:Escape(tostring(str)) .. "\"" end
 
     return escape(str)
 end
