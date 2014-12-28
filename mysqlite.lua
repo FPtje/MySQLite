@@ -91,6 +91,10 @@
         onFinished is NOT called when an error occurs in one of the queued queries.
 
         onFinished is called without arguments.
+
+    ----------------------------- Hooks -----------------------------
+    DatabaseInitialized
+        Called when a successful connection to the database has been made.
 ]]
 
 local bit = bit
