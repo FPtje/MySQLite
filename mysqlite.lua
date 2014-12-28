@@ -155,7 +155,7 @@ function initialize(config)
 end
 
 local CONNECTED_TO_MYSQL = false
-local databaseObject = nil
+databaseObject = nil
 
 local queuedQueries
 local cachedQueries
