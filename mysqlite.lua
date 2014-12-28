@@ -257,16 +257,17 @@ local function msOOQuery(sqlText, callback, errorCallback, queryValue)
 end
 
 local function tmsqlQuery(sqlText, callback, errorCallback, queryValue)
-    local call = function(res, succeed, err)
-        if not succeed then
-            local supp = errorCallback and errorCallback(err, sqlText)
-            if not supp then error(err .. " (" .. sqlText .. ")") end
+    local call = function(res)
+        res = res[1] -- For now only support one result set
+        if not res.status then
+            local supp = errorCallback and errorCallback(res.error, sqlText)
+            if not supp then error(res.error .. " (" .. sqlText .. ")") end
             return
         end
 
-        if #res == 0 then res = nil end -- compatibility with other backends
-        if queryValue and callback then return callback(res and res[1] and res[1][1] or nil) end
-        if callback then callback(res, err) end -- err is last inserted row on succeed
+        if not res.data or #res.data == 0 then res.data = nil end -- compatibility with other backends
+        if queryValue and callback then return callback(res.data and res.data[1] and res.data[1]["1"] or nil) end
+        if callback then callback(res.data, res.lastid ~= 0 and res.lastid or nil) end
     end
 
     databaseObject:Query(sqlText, call)
