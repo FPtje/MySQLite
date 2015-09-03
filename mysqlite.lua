@@ -12,7 +12,7 @@
     - MySQLOO
     - tmysql4
 
-    Note: When both MySQLOO and tmysql4 modules are installed, MySQLOO is used by default.
+    Note: When both MySQLOO and tmysql4 modules are installed, tmysql4 is used by default.
 
     /*---------------------------------------------------------------------------
     Documentation
@@ -129,18 +129,14 @@ local function loadMySQLModule()
     end
     moduleLoaded = true
 
-    require(moo and tmsql and MySQLite_config.Preferred_module or
-            moo and "mysqloo"                                  or
-            "tmysql4")
-
-
+    require(moo and tmsql and MySQLite_config.Preferred_module 
+    or tmsql and "tmysql4" or moo and "mysqloo")
     mysqlOO = mysqloo
     TMySQL = tmysql
 end
 loadMySQLModule()
 
 module("MySQLite")
-
 
 function initialize(config)
     MySQLite_config = config or MySQLite_config
@@ -347,16 +343,16 @@ end
 
 function query(sqlText, callback, errorCallback)
     local qFunc = (CONNECTED_TO_MYSQL and
-            mysqlOO and msOOQuery or
-            TMySQL and tmsqlQuery) or
+            TMySQL and tmsqlQuery or
+            mysqlOO and msOOQuery) or
         SQLiteQuery
     return qFunc(sqlText, callback, errorCallback, false)
 end
 
 function queryValue(sqlText, callback, errorCallback)
     local qFunc = (CONNECTED_TO_MYSQL and
-            mysqlOO and msOOQuery or
-            TMySQL and tmsqlQuery) or
+            TMySQL and tmsqlQuery or
+            mysqlOO and msOOQuery) or
         SQLiteQuery
     return qFunc(sqlText, callback, errorCallback, true)
 end
@@ -405,15 +401,15 @@ end
 
 function connectToMySQL(host, username, password, database_name, database_port)
     database_port = database_port or 3306
-    local func = mysqlOO and msOOConnect or TMySQL and tmsqlConnect or function() end
+    local func = TMySQL and tmsqlConnect or mysqlOO and msOOConnect  or function() end
     func(host, username, password, database_name, database_port)
 end
 
 function SQLStr(str)
     local escape =
         not CONNECTED_TO_MYSQL and sql.SQLStr or
-        mysqlOO                and function(str) return '"' .. databaseObject:escape(tostring(str)) .. '"' end or
-        TMySQL                 and function(str) return '"' .. databaseObject:Escape(tostring(str)) .. '"' end
+        TMySQL                 and function(str) return '"' .. databaseObject:Escape(tostring(str)) .. '"' end or
+        mysqlOO                and function(str) return '"' .. databaseObject:escape(tostring(str)) .. '"' end 
 
     return escape(str)
 end
