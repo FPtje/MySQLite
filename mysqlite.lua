@@ -125,7 +125,7 @@ local function loadMySQLModule()
     moo, tmsql = file.Exists("bin/gmsv_mysqloo_*.dll", "LUA"), file.Exists("bin/gmsv_tmysql4_*.dll", "LUA")
 
     if not moo and not tmsql then
-        error("Could not find a suitable MySQL module. Supported modules are MySQLOO and tmysql4.\n")
+        error("Could not find a suitable MySQL module. Supported modules are MySQLOO and tmysql4.")
     end
     moduleLoaded = true
 
@@ -237,7 +237,7 @@ function format.insert(id,tab)
     for k,v in pairs(tab) do
         if start then --There are already vars
             VALUES_str = VALUES_str .. string.format(",`%s`", k)
-			VALUES = VALUES .. "," .. SQLStr(v)
+            VALUES = VALUES .. "," .. SQLStr(v)
         else
             VALUES_str = VALUES_str .. string.format("`%s`", k)
             VALUES = VALUES .. SQLStr(v)
