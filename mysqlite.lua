@@ -237,6 +237,7 @@ function format.insert(id,tab)
     for k,v in pairs(tab) do
         if start then --There are already vars
             VALUES_str = VALUES_str .. string.format(",`%s`", k)
+			VALUES = VALUES .. "," .. SQLStr(v)
         else
             VALUES_str = VALUES_str .. string.format("`%s`", k)
             VALUES = VALUES .. SQLStr(v)
