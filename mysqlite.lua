@@ -125,7 +125,7 @@ local function loadMySQLModule()
     moo, tmsql = file.Exists("bin/gmsv_mysqloo_*.dll", "LUA"), file.Exists("bin/gmsv_tmysql4_*.dll", "LUA")
 
     if not moo and not tmsql then
-        error("Could not find a suitable MySQL module. Supported modules are MySQLOO and tmysql4.")
+        error("Could not find a suitable MySQL module. Supported modules are MySQLOO and tmysql4.\n")
     end
     moduleLoaded = true
 
@@ -146,7 +146,7 @@ function initialize(config)
     MySQLite_config = config or MySQLite_config
 
     if not MySQLite_config then
-        ErrorNoHalt("Warning: No MySQL config!")
+        ErrorNoHalt("Warning: No MySQL config!\n")
     end
 
     loadMySQLModule()
@@ -171,74 +171,118 @@ local queuedQueries
 local cachedQueries
 
 function isMySQL()
-	return CONNECTED_TO_MYSQL
+    return CONNECTED_TO_MYSQL
 end
 
 function begin()
-	if not CONNECTED_TO_MYSQL then
-		sql.Begin()
-	else
-		if queuedQueries then
-			debug.Trace()
-			error("Transaction ongoing!")
-		end
-		queuedQueries = {}
-	end
+    if not CONNECTED_TO_MYSQL then
+        sql.Begin()
+    else
+        if queuedQueries then
+            debug.Trace()
+            error("Transaction ongoing!")
+        end
+        queuedQueries = {}
+    end
 end
 
 function commit(onFinished)
-	if not CONNECTED_TO_MYSQL then
-		sql.Commit()
-		if onFinished then onFinished() end
-		return
-	end
+    if not CONNECTED_TO_MYSQL then
+        sql.Commit()
+        if onFinished then onFinished() end
+        return
+    end
 
-	if not queuedQueries then
-		error("No queued queries! Call begin() first!")
-	end
+    if not queuedQueries then
+        error("No queued queries! Call begin() first!")
+    end
 
-	if #queuedQueries == 0 then
-		queuedQueries = nil
-		return
-	end
+    if #queuedQueries == 0 then
+        queuedQueries = nil
+        return
+    end
 
-	-- Copy the table so other scripts can create their own queue
-	local queue = table.Copy(queuedQueries)
-	queuedQueries = nil
+    -- Copy the table so other scripts can create their own queue
+    local queue = table.Copy(queuedQueries)
+    queuedQueries = nil
 
-	-- Handle queued queries in order
-	local queuePos = 0
-	local call
+    -- Handle queued queries in order
+    local queuePos = 0
+    local call
 
-	-- Recursion invariant: queuePos > 0 and queue[queuePos] <= #queue
-	call = function(...)
-		queuePos = queuePos + 1
+    -- Recursion invariant: queuePos > 0 and queue[queuePos] <= #queue
+    call = function(...)
+        queuePos = queuePos + 1
 
-		if queue[queuePos].callback then
-			queue[queuePos].callback(...)
-		end
+        if queue[queuePos].callback then
+            queue[queuePos].callback(...)
+        end
 
-		-- Base case, end of the queue
-		if queuePos + 1 > #queue then
-			if onFinished then onFinished() end -- All queries have finished
-			return
-		end
+        -- Base case, end of the queue
+        if queuePos + 1 > #queue then
+            if onFinished then onFinished() end -- All queries have finished
+            return
+        end
 
-		-- Recursion
-		local nextQuery = queue[queuePos + 1]
-		query(nextQuery.query, call, nextQuery.onError)
-	end
+        -- Recursion
+        local nextQuery = queue[queuePos + 1]
+        query(nextQuery.query, call, nextQuery.onError)
+    end
 
-	query(queue[1].query, call, queue[1].onError)
+    query(queue[1].query, call, queue[1].onError)
+end
+
+format = {}
+function format.insert(id,tab)
+    local VALUES_str = ""
+    local VALUES = ""
+
+    local start = false
+    for k,v in pairs(tab) do
+        if start then --There are already vars
+            VALUES_str = VALUES_str .. string.format(",`%s`", k)
+        else
+            VALUES_str = VALUES_str .. string.format("`%s`", k)
+            VALUES = VALUES .. SQLStr(v)
+            start = true
+        end
+    end
+    return "INSERT INTO `" .. id .. "` (" .. VALUES_str .. ") VALUES (" .. VALUES .. ");"
+end
+
+function format.update(id,what,where)
+    local WHAT = ""
+    local WHERE = ""
+
+    local start_1 = false
+    local start_2 = false
+    for k,v in pairs(what) do
+        if not start_1 then
+            WHAT = WHAT .. string.format("`%s` = %s", k, SQLStr(v))
+            start_1 = true
+        else
+            WHAT = WHAT .. string.format(",`%s` = %s", k, SQLStr(v))
+        end
+    end
+
+    for k,v in pairs(where) do
+        if start_2 then
+            WHERE = WHERE .. string.format(" AND `%s` = %s", k, SQLStr(v))
+        else
+            WHERE = WHERE .. string.format("`%s` = %s", k, SQLStr(v))
+            start_2 = true
+        end
+    end
+    return "UPDATE `" .. id .. "` SET " .. WHAT .. " WHERE " .. WHERE .. ";"
 end
 
 function queueQuery(sqlText, callback, errorCallback)
-	if CONNECTED_TO_MYSQL then
-		table.insert(queuedQueries, {query = sqlText, callback = callback, onError = errorCallback})
-		return
-	end
-	-- SQLite is instantaneous, simply running the query is equal to queueing it
-	query(sqlText, callback, errorCallback)
+    if CONNECTED_TO_MYSQL then
+        table.insert(queuedQueries, {query = sqlText, callback = callback, onError = errorCallback})
+        return
+    end
+    -- SQLite is instantaneous, simply running the query is equal to queueing it
+    query(sqlText, callback, errorCallback)
 end
 
 local function msOOQuery(sqlText, callback, errorCallback, queryValue)
@@ -302,7 +346,7 @@ local function SQLiteQuery(sqlText, callback, errorCallback, queryValue)
 end
 
 function query(sqlText, callback, errorCallback)
-	local qFunc = (CONNECTED_TO_MYSQL and
+    local qFunc = (CONNECTED_TO_MYSQL and
             mysqlOO and msOOQuery or
             TMySQL and tmsqlQuery) or
         SQLiteQuery
@@ -334,10 +378,10 @@ local function onConnected()
     hook.Call("DatabaseInitialized", GAMEMODE.DatabaseInitialized and GAMEMODE or nil)
 end
 
-msOOConnect = function(host, username, password, database_name, database_port)
+function msOOConnect(host, username, password, database_name, database_port)
     databaseObject = mysqlOO.connect(host, username, password, database_name, database_port)
 
-    if timer.Exists("darkrp_check_mysql_status") then timer.Destroy("darkrp_check_mysql_status") end
+   timer.Remove("darkrp_check_mysql_status")
 
     databaseObject.onConnectionFailed = function(_, msg)
         timer.Simple(5, function()
@@ -368,21 +412,21 @@ end
 function SQLStr(str)
     local escape =
         not CONNECTED_TO_MYSQL and sql.SQLStr or
-        mysqlOO                and function(str) return "\"" .. databaseObject:escape(tostring(str)) .. "\"" end or
-        TMySQL                 and function(str) return "\"" .. databaseObject:Escape(tostring(str)) .. "\"" end
+        mysqlOO                and function(str) return '"' .. databaseObject:escape(tostring(str)) .. '"' end or
+        TMySQL                 and function(str) return '"' .. databaseObject:Escape(tostring(str)) .. '"' end
 
     return escape(str)
 end
 
 function tableExists(tbl, callback, errorCallback)
-	if not CONNECTED_TO_MYSQL then
-		local exists = sql.TableExists(tbl)
-		callback(exists)
+    if not CONNECTED_TO_MYSQL then
+        local exists = sql.TableExists(tbl)
+        callback(exists)
 
-		return exists
-	end
+        return exists
+    end
 
-	queryValue(string.format("SHOW TABLES LIKE %s", SQLStr(tbl)), function(v)
-		callback(v ~= nil)
-	end, errorCallback)
+    queryValue(string.format("SHOW TABLES LIKE %s", SQLStr(tbl)), function(v)
+        callback(v ~= nil)
+    end, errorCallback)
 end
