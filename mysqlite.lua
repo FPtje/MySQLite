@@ -152,9 +152,7 @@ function initialize(config)
     loadMySQLModule()
 
     if MySQLite_config.EnableMySQL then
-        timer.Simple(1, function()
-            connectToMySQL(MySQLite_config.Host, MySQLite_config.Username, MySQLite_config.Password, MySQLite_config.Database_name, MySQLite_config.Database_port)
-        end)
+        connectToMySQL(MySQLite_config.Host, MySQLite_config.Username, MySQLite_config.Password, MySQLite_config.Database_name, MySQLite_config.Database_port)
     else
         timer.Simple(0, function()
             GAMEMODE.DatabaseInitialized = GAMEMODE.DatabaseInitialized or function() end
