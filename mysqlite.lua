@@ -297,7 +297,7 @@ local function SQLiteQuery(sqlText, callback, errorCallback, queryValue)
     if sql.LastError() and sql.LastError() ~= lastError then
         local err = sql.LastError()
         local supp = errorCallback and errorCallback(err, sqlText)
-        if not supp then error(err .. " (" .. sqlText .. ")") end
+        if supp == false then error(err .. " (" .. sqlText .. ")", 2) end
         return
     end
 
