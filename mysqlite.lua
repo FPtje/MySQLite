@@ -289,6 +289,8 @@ local function tmsqlQuery(sqlText, callback, errorCallback, queryValue)
 end
 
 local function SQLiteQuery(sqlText, callback, errorCallback, queryValue)
+    sql.m_strError = "" -- reset last error
+
     local lastError = sql.LastError()
     local Result = queryValue and sql.QueryValue(sqlText) or sql.Query(sqlText)
 
