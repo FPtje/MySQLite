@@ -17,10 +17,10 @@
 ```lua
 MySQLite.initialize({
   EnableMySQL = true or false,               -- set to true to use MySQL, false for SQLite
-  Host        = string,                    -- database hostname
-  Username    = string,                    -- database username
-  Password    = string or nil,             -- database password (keep away from clients!), can be nil for users without passwords (not recommended)
-  Database_name = string,                  -- name of the database
+  Host        = string,                      -- database hostname
+  Username    = string,                      -- database username
+  Password    = string or nil,               -- database password (keep away from clients!), can be nil for users without passwords (not recommended)
+  Database_name = string,                    -- name of the database
   Preferred_module = "mysqloo" or "tmysql4", -- Preferred module, case sensitive, must be either "mysqloo" or "tmysql4"
   MultiStatements = true or false            -- Only available in tmysql4: allow multiple SQL statements per query
 })
