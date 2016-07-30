@@ -4,7 +4,6 @@
 * Easy to use interface for MySQL
 * No need to modify code when switching between SQLite and MySQL
 * Queued queries: execute a bunch of queries in order an run the callback when all queries are done
-    License: LGPL V2.1 (read here: https://www.gnu.org/licenses/lgpl-2.1.html)
     
 ###Supported MySQL modules:
 * MySQLOO
