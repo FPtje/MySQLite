@@ -266,7 +266,7 @@ local function msOOQuery(sqlText, callback, errorCallback, queryValue)
     end
 
     queryObject.onSuccess = function()
-        local res = queryValue and data and data[1] and table.GetFirstValue(data[1]) or not queryValue and data or nil
+        local res = queryValue and data and data[1] and data[1][1] or not queryValue and data or nil
         if callback then callback(res, queryObject:lastInsert()) end
     end
     queryObject:start()
@@ -282,7 +282,7 @@ local function tmsqlQuery(sqlText, callback, errorCallback, queryValue)
         end
 
         if not res.data or #res.data == 0 then res.data = nil end -- compatibility with other backends
-        if queryValue and callback then return callback(res.data and res.data[1] and table.GetFirstValue(res.data[1]) or nil) end
+        if queryValue and callback then return callback(res.data and res.data[1] and res.data[1][1] or nil) end
         if callback then callback(res.data, res.lastid) end
     end
 
