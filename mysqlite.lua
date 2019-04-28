@@ -99,12 +99,10 @@
         Called when a successful connection to the database has been made.
 ]]
 
-local bit = bit
 local debug = debug
 local error = error
 local ErrorNoHalt = ErrorNoHalt
 local hook = hook
-local include = include
 local pairs = pairs
 local require = require
 local sql = sql
@@ -112,7 +110,6 @@ local string = string
 local table = table
 local timer = timer
 local tostring = tostring
-local GAMEMODE = GM or GAMEMODE
 local mysqlOO
 local TMySQL
 local _G = _G
@@ -159,8 +156,8 @@ function initialize(config)
         connectToMySQL(MySQLite_config.Host, MySQLite_config.Username, MySQLite_config.Password, MySQLite_config.Database_name, MySQLite_config.Database_port)
     else
         timer.Simple(0, function()
-            GAMEMODE.DatabaseInitialized = GAMEMODE.DatabaseInitialized or function() end
-            hook.Call("DatabaseInitialized", GAMEMODE)
+            _G.GAMEMODE.DatabaseInitialized = _G.GAMEMODE.DatabaseInitialized or function() end
+            hook.Call("DatabaseInitialized", _G.GAMEMODE)
         end)
     end
 end
@@ -329,8 +326,9 @@ local function onConnected()
         end
     end
     cachedQueries = {}
+    local GM = _G.GAMEMODE or _G.GM
 
-    hook.Call("DatabaseInitialized", GAMEMODE.DatabaseInitialized and GAMEMODE or nil)
+    hook.Call("DatabaseInitialized", GM.DatabaseInitialized and GM or nil)
 end
 
 msOOConnect = function(host, username, password, database_name, database_port)
