@@ -144,7 +144,7 @@ local function loadMySQLModule()
             MsgC(Color(255, 0, 0), "Using older tmysql version, please consider updating!\n")
             MsgC(Color(255, 0, 0), "Newer Version: https://github.com/SuperiorServers/gm_tmysql4\n")
         end
-        
+
         -- Turns tmysql.Connect into tmysql.Initialize if they're using an older version.
         TMySQL.Connect = (tmysql.Version and tmysql.Version >= 4.1 and TMySQL.Connect or TMySQL.initialize)
         TMySQL.SetOption = (tmysql.Version and tmysql.Version >= 4.1 and TMySQL.SetOption or TMySQL.Option)
