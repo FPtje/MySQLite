@@ -137,6 +137,18 @@ local function loadMySQLModule()
 
     mysqlOO = mysqloo
     TMySQL = tmysql
+
+    if MySQLite_config.Preferred_module == "tmysql4" then
+
+        if not tmysql.Version or tmysql.Version < 4.1 then
+            MsgC(Color(255, 0, 0), "Using older tmysql version, please consider updating!\n")
+            MsgC(Color(255, 0, 0), "Newer Version: https://github.com/SuperiorServers/gm_tmysql4\n")
+        end
+        
+        -- Turns tmysql.Connect into tmysql.Initialize if they're using an older version.
+        TMySQL.Connect = (tmysql.Version and tmysql.Version >= 4.1 and TMySQL.Connect or TMySQL.initialize)
+        TMySQL.SetOption = (tmysql.Version and tmysql.Version >= 4.1 and TMySQL.SetOption or TMySQL.Option)
+    end
 end
 loadMySQLModule()
 
@@ -334,6 +346,7 @@ local function onConnected()
     local GM = _G.GAMEMODE or _G.GM
 
     hook.Call("DatabaseInitialized", GM.DatabaseInitialized and GM or nil)
+
 end
 
 msOOConnect = function(host, username, password, database_name, database_port)
@@ -354,11 +367,17 @@ msOOConnect = function(host, username, password, database_name, database_port)
 end
 
 local function tmsqlConnect(host, username, password, database_name, database_port)
-    local db, err = TMySQL.initialize(host, username, password, database_name, database_port, nil, MySQLite_config.MultiStatements and multistatements or nil)
+    local db, err = TMySQL.Connect(host, username, password, database_name, database_port, nil, MySQLite_config.MultiStatements and multistatements or nil)
     if err then error("Connection failed! " .. err ..  "\n") end
 
     databaseObject = db
     onConnected()
+
+    if (TMySQL.Version and TMySQL.Version >= 4.1) then
+        hook.Add("Think", "MySQLite:tmysqlPoll", function()
+            db:Poll()
+        end)
+    end
 end
 
 function connectToMySQL(host, username, password, database_name, database_port)
