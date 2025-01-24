@@ -78,9 +78,9 @@
         The errorCallback format is the same as in MySQLite.query.
 
     MySQLite.prepare(sqlText :: String, sqlParams :: Table, callback :: function, errorCallback :: function)
-        Calls a prepared statement, faster for queries that are ran mutliple times. Params do not need to be escaped.
+        Calls a prepared statement, faster for queries that are ran multiple times. Params do not need to be escaped.
         This does not work with SQLite, and will instead call a regular query
-  
+
         callback format:
             function(result :: table, lastInsert :: number, rowsChanged :: number)
             Result is the table with results (nil when there are no results or when the result list is empty)
@@ -91,7 +91,7 @@
 
         The errorCallback format is the same as in MySQLite.query.
 
-        Example: 
+        Example:
             MySQLite.prepare("UPDATE `darkrp_player` SET `rpname` = ? WHERE  `rpname` = ?", { "players_old_name", "players_new_name"}, success_callback, error_callback)
 
     ----------------------------- Transactions -----------------------------
@@ -328,9 +328,8 @@ local function msOOPrepare(sqlText, sqlParams, callback, errorCallback)
     if preparedStatements[sqlText] then
         queryObject = preparedStatements[sqlText]
     else
-        local query = databaseObject:prepare(sqlText)
-        preparedStatements[sqlText] = query
-        queryObject = query
+        queryObject = databaseObject:prepare(sqlText)
+        preparedStatements[sqlText] = queryObject
     end
 
     for i, param in ipairs(sqlParams) do
@@ -351,7 +350,7 @@ local function msOOPrepare(sqlText, sqlParams, callback, errorCallback)
     queryObject.onSuccess = function(_, data)
         if callback then callback(data, queryObject:lastInsert(), queryObject:affectedRows()) end
     end
-    
+
     queryObject:start()
 end
 
@@ -361,9 +360,8 @@ local function tmsqlPrepare(sqlText, sqlParams, callback, errorCallback)
     if preparedStatements[sqlText] then
         queryObject = preparedStatements[sqlText]
     else
-        local query = databaseObject:Prepare(sqlText)
-        preparedStatements[sqlText] = query
-        queryObject = query
+        queryObject = databaseObject:Prepare(sqlText)
+        preparedStatements[sqlText] = queryObject
     end
 
     for i, param in ipairs(sqlParams) do
@@ -372,14 +370,14 @@ local function tmsqlPrepare(sqlText, sqlParams, callback, errorCallback)
 
     local varcount = queryObject:GetArgCount()
 
-	sqlParams[varcount + 1] = function(results)
-		if results[1].error ~= nil then
+    sqlParams[varcount + 1] = function(results)
+        if results[1].error ~= nil then
             local supp = errorCallback and errorCallback(E, results[1].error)
             if not supp then error(E .. " (" .. results[1].error .. ")") end
-		end
+        end
 
         if callback then callback(data, results[1].lastid, results[1].affected) end
-	end
+    end
 
     queryObject:Run(unpack(sqlParams, 1, varcount + 2))
 end
